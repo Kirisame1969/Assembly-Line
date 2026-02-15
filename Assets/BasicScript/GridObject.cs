@@ -25,5 +25,5 @@ public class GridObject : MonoBehaviour
             Debug.Log("玩家销毁了一个物体");
         }
     }
-
+    //测试下这条有没有同步
 }
