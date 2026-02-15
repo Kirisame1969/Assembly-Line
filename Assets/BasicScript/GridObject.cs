@@ -26,4 +26,5 @@ public class GridObject : MonoBehaviour
         }
     }
     //测试下这条有没有同步
+    //再测一次
 }
