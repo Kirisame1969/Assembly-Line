@@ -13,6 +13,29 @@ public class MouseClickSpawner : MonoBehaviour
     // 记录上一次放置的网格坐标（可空类型，初始为null）
     private Vector2Int? lastPlacedGridPos = null;
 
+    
+    public enum PlacementMode
+    {
+        Building,   // 放置建筑（传送带）
+        Item        // 放置物品（矿石）
+    }
+
+    public PlacementMode currentMode = PlacementMode.Building; // 当前模式，默认为建筑
+    
+    // 切换到建筑模式
+    public void SetBuildingMode()
+    {
+        currentMode = PlacementMode.Building;
+        Debug.Log("切换到：放置传送带");
+    }
+
+    // 切换到物品模式
+    public void SetItemMode()
+    {
+        currentMode = PlacementMode.Item;
+        Debug.Log("切换到：放置物品");
+    }
+
     void Start()
     {
         // 获取场景中的GridManager组件（假设挂载在某个对象上）
