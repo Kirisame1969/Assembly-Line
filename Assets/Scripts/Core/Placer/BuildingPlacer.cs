@@ -42,6 +42,10 @@ public class BuildingPlacer : MonoBehaviour
                     if (placed)
                     {
                         lastPlacedGridPos = currentGridPos;
+                        // 新增：让新传送带尝试加入线路
+                        ConveyorBelt belt = newObj.GetComponent<ConveyorBelt>();
+                        if (belt != null)
+                            belt.TryJoinLine();
                     }
                     else
                     {
@@ -69,11 +73,17 @@ public class BuildingPlacer : MonoBehaviour
                 Vector3 spawnPos = gridManager.GridToWorld(currentGridPos);
                 GameObject newObj = Instantiate(buildingPrefab, spawnPos, Quaternion.identity);
                 bool placed = gridManager.PlaceObject(currentGridPos, newObj);
-                if (!placed)
+                if (placed)
+                {
+                    // 新增：让新传送带尝试加入线路
+                    ConveyorBelt belt = newObj.GetComponent<ConveyorBelt>();
+                    if (belt != null)
+                        belt.TryJoinLine();
+                }           
+                else
                 {
                     Destroy(newObj);
                 }
-                // 不记录lastPlacedGridPos，因为不连续
             }
         }
     }

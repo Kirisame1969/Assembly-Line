@@ -55,7 +55,7 @@ public class ItemPlacer : MonoBehaviour
                         if (conveyor != null && !conveyor.HasItem())
                         {
                             conveyor.SetItem(newItem);
-                            itemMove.StartMovingInDirection(conveyor.GetDirectionVector());
+                            // 不再手动调用 StartMovingInDirection，物品会在下一个 FixedUpdate 中自动尝试移动
                         }
                     }
                     else

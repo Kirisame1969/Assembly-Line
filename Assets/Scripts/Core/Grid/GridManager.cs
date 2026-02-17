@@ -18,6 +18,7 @@ public class GridManager : MonoBehaviour
     {
         // 初始化二维数组
         gridObjects = new GameObject[gridWidth, gridHeight];
+        
     }
 
 

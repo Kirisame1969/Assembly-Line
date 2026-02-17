@@ -9,20 +9,24 @@ public class PlacementManager : MonoBehaviour
     public enum PlacementMode
     {
         Building,
-        Item
+        Item,
+        Motor,
     }
 
     public PlacementMode currentMode = PlacementMode.Building;
 
     private BuildingPlacer buildingPlacer;
     private ItemPlacer itemPlacer;
+    private MotorPlacer motorPlacer;
 
     void Start()
     {
         // 获取子脚本组件（假设它们挂载在同一个GameObject上）
         buildingPlacer = GetComponent<BuildingPlacer>();
         itemPlacer = GetComponent<ItemPlacer>();
-
+        motorPlacer = GetComponent<MotorPlacer>();
+        if (motorPlacer == null)
+            Debug.LogError("缺少MotorPlacer组件");
         if (buildingPlacer == null || itemPlacer == null)
         {
             Debug.LogError("PlacementManager: 缺少BuildingPlacer或ItemPlacer组件！");
@@ -56,6 +60,8 @@ public class PlacementManager : MonoBehaviour
         // 启用当前模式的脚本，禁用另一个
         buildingPlacer.enabled = (currentMode == PlacementMode.Building);
         itemPlacer.enabled = (currentMode == PlacementMode.Item);
+        if (motorPlacer != null)
+            motorPlacer.enabled = (currentMode == PlacementMode.Motor);
     }
 
     // 可选：提供设置预制体的方法，方便后续扩展
@@ -69,5 +75,13 @@ public class PlacementManager : MonoBehaviour
     {
         if (itemPlacer != null)
             itemPlacer.SetItemPrefab(prefab);
+    }
+
+    public void SetMotorMode()
+    {
+        currentMode = PlacementMode.Motor;
+        UpdateMode();
+        //DeselectObject(); 
+        // 如果有选中物体，取消选中
     }
 }

@@ -1,20 +1,30 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class ConveyorBelt : MonoBehaviour
 {
     public enum Direction { Up, Down, Left, Right }
-    public Direction direction = Direction.Right; // 默认向右
+    public Direction fixedDirection;    // 铺设时的固定方向
+    public ConveyorLine line;            // 所属线路（可能为null）
 
     private GameObject currentItem; // 当前格子上的物品
     private GridManager gridManager;
     private Vector2Int gridPos;
 
-    void Start()
+    void Awake()
     {
         gridManager = FindObjectOfType<GridManager>();
-        // 获取自己的网格坐标
+        if (gridManager == null)
+            Debug.LogError("ConveyorBelt: 找不到GridManager！");
+    }
+
+    void Start()
+    {
+        
+        //gridManager = FindObjectOfType<GridManager>();
+        //获取自己的网格坐标
         gridPos = gridManager.WorldToGrid(transform.position);
     }
 
@@ -60,7 +70,7 @@ public class ConveyorBelt : MonoBehaviour
 
     public Vector2Int GetDirectionVector()
     {
-        switch (direction)
+        switch (fixedDirection)
         {
             case Direction.Up:    return Vector2Int.up;
             case Direction.Down:  return Vector2Int.down;
@@ -77,5 +87,64 @@ public class ConveyorBelt : MonoBehaviour
         Vector2Int dir2D = GetDirectionVector();
         Vector3 dir = new Vector3(dir2D.x, dir2D.y, 0);
         Gizmos.DrawRay(transform.position, dir * 0.5f);
+    }
+
+    public void TryJoinLine()
+    {
+        Debug.Log($"[TryJoinLine] 传送带 {name} 尝试加入线路");
+        if (line != null) return; // 已经在线路中
+
+        Vector2Int gridPos = gridManager.WorldToGrid(transform.position);
+        Direction dir = fixedDirection;
+        Vector2Int[] neighborOffsets = GetParallelOffsets(dir);
+
+        HashSet<ConveyorLine> neighborLines = new HashSet<ConveyorLine>();
+
+        foreach (var offset in neighborOffsets)
+        {
+            Vector2Int neighborPos = gridPos + offset;
+            if (!gridManager.IsWithinBounds(neighborPos)) continue;
+                GameObject neighborObj = gridManager.GetObjectAt(neighborPos);
+            if (neighborObj == null) continue;
+                ConveyorBelt neighborBelt = neighborObj.GetComponent<ConveyorBelt>();
+            if (neighborBelt != null && neighborBelt.fixedDirection == dir && neighborBelt.line != null)
+            {
+                neighborLines.Add(neighborBelt.line);
+            }
+        }
+
+        if (neighborLines.Count == 0)
+        {
+            // 无相邻线路，不处理
+        }
+        else if (neighborLines.Count == 1)
+        {
+            ConveyorLine lineToJoin = neighborLines.First();
+            Debug.Log($"  加入现有线路 {lineToJoin.id}");
+            lineToJoin.AddBelt(this);
+        }
+        else // 2条不同线路
+        {
+            ConveyorLine lineA = neighborLines.ElementAt(0);
+            ConveyorLine lineB = neighborLines.ElementAt(1);
+            Debug.Log($"  检测到两条不同线路 {lineA.id} 和 {lineB.id}，准备合并");
+            ConveyorLine merged = ConveyorLine.Merge(lineA, lineB);
+            merged.AddBelt(this);
+        }
+    }
+
+    private Vector2Int[] GetParallelOffsets(Direction dir)
+    {
+        switch (dir)
+        {
+            case Direction.Up:
+            case Direction.Down:
+                return new Vector2Int[] { Vector2Int.up, Vector2Int.down };
+            case Direction.Left:
+            case Direction.Right:
+                return new Vector2Int[] { Vector2Int.left, Vector2Int.right };
+            default:
+                return new Vector2Int[0];
+        }
     }
 }
