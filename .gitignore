@@ -4,6 +4,7 @@
 /[Bb]uild/
 /[Bb]uilds/
 /[Mm]emoryCaptures/
+/Logs/
 Assets/AssetStoreTools*
 
 # 忽略 IDE 生成的文件
