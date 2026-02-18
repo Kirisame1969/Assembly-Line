@@ -29,41 +29,41 @@ public class ItemPlacer : MonoBehaviour
 
             if (gridManager.IsWithinBounds(gridPos))
             {
-                // 检查该格子是否已经有物品（通过传送带是否有物品来判断，避免重叠）
-                GameObject cellObj = gridManager.GetObjectAt(gridPos);
+            // 检查该格子是否已经有物品（通过传送带是否有物品来判断，避免重叠）
+            GameObject cellObj = gridManager.GetObjectAt(gridPos);
+            if (cellObj != null && cellObj.CompareTag("Conveyor"))
+            {
+                ConveyorBelt conveyor = cellObj.GetComponent<ConveyorBelt>();
+                if (conveyor != null && conveyor.HasItem())
+                {
+                    Debug.Log("该传送带格子上已有物品，不能放置");
+                    return;
+                }
+            }
+
+            // 生成物品
+            GameObject newItem = Instantiate(itemPrefab, gridManager.GridToWorld(gridPos), Quaternion.identity);
+            ItemMovement itemMove = newItem.GetComponent<ItemMovement>();
+            if (itemMove != null)
+            {
+                itemMove.SetCurrentGrid(gridPos);
+
+                // 如果该格子有传送带且空闲，交给传送带
                 if (cellObj != null && cellObj.CompareTag("Conveyor"))
                 {
                     ConveyorBelt conveyor = cellObj.GetComponent<ConveyorBelt>();
-                    if (conveyor != null && conveyor.HasItem())
+                    if (conveyor != null && !conveyor.HasItem())
                     {
-                        Debug.Log("该传送带格子上已有物品，不能放置");
-                        return;
+                        conveyor.SetItem(newItem);
+                        // 不再手动调用 StartMovingInDirection
                     }
                 }
-
-                // 生成物品
-                GameObject newItem = Instantiate(itemPrefab, gridManager.GridToWorld(gridPos), Quaternion.identity);
-                ItemMovement itemMove = newItem.GetComponent<ItemMovement>();
-                if (itemMove != null)
+                else
                 {
-                    itemMove.SetCurrentGrid(gridPos);
-
-                    // 如果该格子有传送带且空闲，交给传送带
-                    if (cellObj != null && cellObj.CompareTag("Conveyor"))
-                    {
-                        ConveyorBelt conveyor = cellObj.GetComponent<ConveyorBelt>();
-                        if (conveyor != null && !conveyor.HasItem())
-                        {
-                            conveyor.SetItem(newItem);
-                            // 不再手动调用 StartMovingInDirection，物品会在下一个 FixedUpdate 中自动尝试移动
-                        }
-                    }
-                    else
-                    {
-                        Debug.Log("物品放在非传送带格子，不会移动");
-                    }
+                    Debug.Log("物品放在非传送带格子，不会移动");
                 }
             }
+        }
         }
     }
 

@@ -89,47 +89,105 @@ public class ConveyorBelt : MonoBehaviour
         Gizmos.DrawRay(transform.position, dir * 0.5f);
     }
 
+        // 在类中添加 using System.Linq; 如果还没有
+
     public void TryJoinLine()
     {
-        Debug.Log($"[TryJoinLine] 传送带 {name} 尝试加入线路");
-        if (line != null) return; // 已经在线路中
+        Debug.Log($"[TryJoinLine] 传送带 {name} 尝试加入线路，当前线路: {(line == null ? "null" : line.id.ToString())}");
+
+        if (line != null) return;
 
         Vector2Int gridPos = gridManager.WorldToGrid(transform.position);
         Direction dir = fixedDirection;
-        Vector2Int[] neighborOffsets = GetParallelOffsets(dir);
+        Vector2Int[] offsets = GetParallelOffsets(dir);
 
-        HashSet<ConveyorLine> neighborLines = new HashSet<ConveyorLine>();
+        ConveyorLine leftLine = null;  // 负方向（左/下）
+        ConveyorLine rightLine = null; // 正方向（右/上）
+        Vector2Int? leftOffset = null;
+        Vector2Int? rightOffset = null;
 
-        foreach (var offset in neighborOffsets)
+        foreach (var offset in offsets)
         {
             Vector2Int neighborPos = gridPos + offset;
             if (!gridManager.IsWithinBounds(neighborPos)) continue;
-                GameObject neighborObj = gridManager.GetObjectAt(neighborPos);
+            GameObject neighborObj = gridManager.GetObjectAt(neighborPos);
             if (neighborObj == null) continue;
-                ConveyorBelt neighborBelt = neighborObj.GetComponent<ConveyorBelt>();
-            if (neighborBelt != null && neighborBelt.fixedDirection == dir && neighborBelt.line != null)
+            ConveyorBelt neighborBelt = neighborObj.GetComponent<ConveyorBelt>();
+            if (neighborBelt == null || neighborBelt.fixedDirection != dir) continue;
+
+            if (neighborBelt.line != null)
             {
-                neighborLines.Add(neighborBelt.line);
+                if (offset.x < 0 || offset.y < 0) // 左或下
+                {
+                    leftLine = neighborBelt.line;
+                    leftOffset = offset;
+                }
+                else if (offset.x > 0 || offset.y > 0) // 右或上
+                {
+                    rightLine = neighborBelt.line;
+                    rightOffset = offset;
+                }
             }
         }
 
-        if (neighborLines.Count == 0)
+        if (leftLine == null && rightLine == null)
         {
-            // 无相邻线路，不处理
+            Debug.Log("  无相邻线路，不加入");
         }
-        else if (neighborLines.Count == 1)
+        else if (leftLine != null && rightLine == null)
         {
-            ConveyorLine lineToJoin = neighborLines.First();
-            Debug.Log($"  加入现有线路 {lineToJoin.id}");
-            lineToJoin.AddBelt(this);
+            Debug.Log($"  左侧有线路 {leftLine.id}，加入并向右侧扩展");
+            leftLine.AddBelt(this);
+            ExtendLine(leftLine, gridPos, -leftOffset.Value); // 向相反方向扩展
         }
-        else // 2条不同线路
+        else if (leftLine == null && rightLine != null)
         {
-            ConveyorLine lineA = neighborLines.ElementAt(0);
-            ConveyorLine lineB = neighborLines.ElementAt(1);
-            Debug.Log($"  检测到两条不同线路 {lineA.id} 和 {lineB.id}，准备合并");
-            ConveyorLine merged = ConveyorLine.Merge(lineA, lineB);
-            merged.AddBelt(this);
+            Debug.Log($"  右侧有线路 {rightLine.id}，加入并向左侧扩展");
+            rightLine.AddBelt(this);
+            ExtendLine(rightLine, gridPos, -rightOffset.Value);
+        }
+        else // 两侧都有线路
+        {
+            if (leftLine == rightLine)
+            {
+                Debug.Log($"  两侧是同一线路 {leftLine.id}，填补空缺");
+                leftLine.AddBelt(this);
+                // 不需要扩展，因为已经是完整线路
+            }
+            else
+            {
+                Debug.Log($"  两侧不同线路 {leftLine.id} 和 {rightLine.id}，准备合并");
+                ConveyorLine merged = ConveyorLine.Merge(leftLine, rightLine);
+                merged.AddBelt(this);
+                // 合并后，新线路已包含所有传送带，无需扩展
+            }
+        }
+    }
+
+    // 向指定方向扩展线路，将所有同向且无线路的传送带加入 line
+    private void ExtendLine(ConveyorLine line, Vector2Int startPos, Vector2Int direction)
+    {
+        Vector2Int pos = startPos + direction;
+        while (true)
+        {
+            if (!gridManager.IsWithinBounds(pos)) break;
+            GameObject obj = gridManager.GetObjectAt(pos);
+            if (obj == null) break;
+            ConveyorBelt belt = obj.GetComponent<ConveyorBelt>();
+            if (belt == null || belt.fixedDirection != fixedDirection) break;
+
+            if (belt.line == null)
+            {
+                Debug.Log($"    扩展加入传送带 {belt.name} 到线路 {line.id}");
+                line.AddBelt(belt);
+            }
+            else if (belt.line != line)
+            {
+                // 如果遇到其他线路，理论上应该合并，但此处先警告并停止扩展
+                Debug.LogWarning($"扩展时遇到其他线路 {belt.line.id}，停止扩展");
+                break;
+            }
+            pos += direction;
         }
     }
 
@@ -146,5 +204,15 @@ public class ConveyorBelt : MonoBehaviour
             default:
                 return new Vector2Int[0];
         }
+    }
+
+    // 根据线路速度符号返回实际移动方向
+    public Vector2Int GetMovementDirection()
+    {
+        Vector2Int baseDir = GetDirectionVector(); // 使用无参版本，内部应基于 fixedDirection
+        if (line != null)
+            return line.speed >= 0 ? baseDir : -baseDir;
+        else
+            return baseDir;
     }
 }

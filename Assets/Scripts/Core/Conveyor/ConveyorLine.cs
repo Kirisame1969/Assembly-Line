@@ -54,8 +54,8 @@ public class ConveyorLine
 
     public void SetSpeed(float newSpeed)
     {
-        speed = Mathf.Clamp(newSpeed, 0f, minMaxSpeed);
-        // 通知所有电机更新显示（可选）
+        speed = Mathf.Clamp(newSpeed, -minMaxSpeed, minMaxSpeed);
+        // 可选：通知电机更新显示
         foreach (var motor in motors)
             motor.SyncSpeedFromLine();
     }
@@ -80,6 +80,8 @@ public class ConveyorLine
     public static ConveyorLine Merge(ConveyorLine a, ConveyorLine b)
     {
         Debug.Log($"合并线路 {a.id} 和 {b.id}");
+        Debug.Log($"线路A: 容量={a.totalCapacity}, 长度={a.beltCount}, 电机数={a.motors.Count}");
+        Debug.Log($"线路B: 容量={b.totalCapacity}, 长度={b.beltCount}, 电机数={b.motors.Count}");
         // 创建新线路
         ConveyorLine merged = LineManager.CreateLine();
 
@@ -113,6 +115,7 @@ public class ConveyorLine
         LineManager.RemoveLine(a);
         LineManager.RemoveLine(b);
 
+        Debug.Log($"合并后新线路 {merged.id}: 容量={merged.totalCapacity}, 长度={merged.beltCount}, 工作={merged.isOperational}");
         return merged;
     }
 }

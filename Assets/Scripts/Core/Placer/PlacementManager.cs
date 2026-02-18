@@ -36,9 +36,72 @@ public class PlacementManager : MonoBehaviour
         UpdateMode();
     }
 
+    private Motor selectedMotor;
+
     void Update()
     {
-        // 可以根据需要动态切换，但这里我们保持简单：通过按钮切换时调用SetMode方法
+        // 鼠标左键选中物体
+        if (Input.GetMouseButtonDown(1))
+        {
+            Debug.Log("左键按下"); // 新增日志
+            Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+            mouseWorldPos.z = 0;
+            Collider2D hit = Physics2D.OverlapPoint(mouseWorldPos);
+            if (hit != null)
+            {
+                Debug.Log($"点击到物体: {hit.gameObject.name}"); // 新增
+                selectedMotor = hit.GetComponent<Motor>();
+                if (selectedMotor != null)
+                {
+                    Debug.Log($"选中电机，线路ID: {(selectedMotor.line == null ? "null" : selectedMotor.line.id.ToString())}, 速度: {selectedMotor.line?.speed}");
+                }
+                else
+                {
+                    Debug.Log("点击到的物体不是电机");
+                }
+            }
+            else
+            {
+                Debug.Log("点击空白处");
+                selectedMotor = null;
+            }
+        }
+
+        // 快捷键调节速度
+        // 快捷键调节速度（上下箭头）
+        if (selectedMotor != null)
+        {
+            if (Input.GetKeyDown(KeyCode.UpArrow))
+            {
+                Debug.Log("上箭头按下");
+                if (selectedMotor.line != null)
+                {
+                    selectedMotor.line.SetSpeed(selectedMotor.line.speed + 0.5f);
+                    Debug.Log($"速度调整为：{selectedMotor.line.speed}");
+                }
+                else
+                {
+                    Debug.LogError("选中电机的line为null");
+                }
+            }
+            else if (Input.GetKeyDown(KeyCode.DownArrow))
+            {
+                Debug.Log("下箭头按下");
+                if (selectedMotor.line != null)
+                {
+                    selectedMotor.line.SetSpeed(selectedMotor.line.speed - 0.5f);
+                    Debug.Log($"速度调整为：{selectedMotor.line.speed}");
+                }
+                else
+                {
+                    Debug.LogError("选中电机的line为null");
+                }
+            }
+        }
+        else
+        {
+            // 可选：打印未选中状态，但会刷屏，暂时不加
+        }
     }
 
     public void SetBuildingMode()

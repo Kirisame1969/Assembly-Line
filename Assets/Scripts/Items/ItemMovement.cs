@@ -4,22 +4,18 @@ using System.Linq;
 
 public class ItemMovement : MonoBehaviour
 {
-    public float defaultSpeed = 1f;             // 默认速度（格子/秒），当无线路时使用（可选）
-
     private GridManager gridManager;
-    private Vector2Int currentGridPos;          // 当前所在的逻辑网格坐标
-    private Vector2Int targetGridPos;           // 正在前往的目标网格坐标
-    private float moveProgress;                  // 移动进度 (0~1)
-    private float currentMoveSpeed;              // 当前实际移动速度（格子/秒），从线路获取
+    private Vector2Int currentGridPos;      // 当前所在的逻辑网格坐标
+    private Vector2Int targetGridPos;       // 正在前往的目标网格坐标
+    private float moveProgress;              // 移动进度 (0~1)
+    private float currentSpeed;              // 当前实际移动速度（格子/秒），从线路获取
     private bool isInitialized = false;
 
     void Awake()
     {
         gridManager = FindObjectOfType<GridManager>();
         if (gridManager == null)
-        {
             Debug.LogError("ItemMovement: 找不到GridManager！");
-        }
     }
 
     void Start()
@@ -37,27 +33,26 @@ public class ItemMovement : MonoBehaviour
 
     void FixedUpdate()
     {
-        // 每 tick 更新速度（线路速度可能变化）
+        // 每tick更新速度（线路速度可能变化）
         UpdateSpeedFromLine();
 
         if (targetGridPos != currentGridPos)
         {
             // 正在移动
-            if (currentMoveSpeed > 0f)
+            if (currentSpeed > 0f)
             {
-                // 进度增加：每 tick 移动的距离 = 速度 * 固定时间步长（格子/秒 * 秒/tick）
-                moveProgress += currentMoveSpeed * Time.fixedDeltaTime;
+                moveProgress += currentSpeed * Time.fixedDeltaTime; // 速度 * 每tick时间
                 if (moveProgress >= 1f)
                 {
                     // 到达目标格子
                     moveProgress = 1f;
                     // 更新逻辑位置
                     currentGridPos = targetGridPos;
-                    targetGridPos = currentGridPos; // 临时设相同，表示到达
-                    // 确保位置精确对齐格子中心（避免浮点误差）
+                    targetGridPos = currentGridPos; // 暂时设相同，表示到达
+                    // 精确对齐格子中心
                     transform.position = gridManager.GridToWorld(currentGridPos);
 
-                    // 到达后处理（例如检查是否继续移动）
+                    // 到达后处理（检查是否继续移动）
                     OnArriveAtTarget();
                 }
             }
@@ -81,7 +76,7 @@ public class ItemMovement : MonoBehaviour
         }
         else
         {
-            // 确保完全对齐（可能因速度0而停在半路，但逻辑位置相同，这里强制对齐）
+            // 确保完全对齐
             transform.position = gridManager.GridToWorld(currentGridPos);
         }
     }
@@ -95,59 +90,80 @@ public class ItemMovement : MonoBehaviour
             ConveyorBelt belt = cellObj.GetComponent<ConveyorBelt>();
             if (belt != null && belt.line != null && belt.line.isOperational)
             {
-                currentMoveSpeed = belt.line.speed;
+                currentSpeed = Mathf.Abs(belt.line.speed); // 取绝对值用于进度计算
             }
             else
             {
-                currentMoveSpeed = 0f;
+                currentSpeed = 0f;
             }
         }
         else
         {
-            currentMoveSpeed = 0f;
+            currentSpeed = 0f;
         }
     }
 
     // 尝试开始向当前格子传送带的方向移动
     private void TryStartMoving()
     {
-        // 获取当前格子上的传送带
         GameObject cellObj = gridManager.GetObjectAt(currentGridPos);
         if (cellObj == null) return;
         ConveyorBelt belt = cellObj.GetComponent<ConveyorBelt>();
         if (belt == null) return;
-        if (belt.line == null || !belt.line.isOperational) return; // 线路不工作
+        if (belt.line == null || !belt.line.isOperational) return;
+        
+        Debug.Log($"[TryStartMoving] 物品在格子 {currentGridPos}，线路ID: {belt.line.id}，速度: {currentSpeed}");
 
-        // 获取移动方向（当前从传送带的固定方向获取，后续可由电机决定）
-        Vector2Int dir = GetDirectionVector(belt.fixedDirection);
+        Vector2Int dir = belt.GetMovementDirection(); // 获取实际方向（考虑符号）
         Vector2Int nextGrid = currentGridPos + dir;
 
-        // 检查下一个格子是否有效
-        if (!gridManager.IsWithinBounds(nextGrid)) return;
+        
+
+
+        if (!gridManager.IsWithinBounds(nextGrid))
+        {
+            Debug.Log("  下一格超出边界");
+            return;
+        }
         GameObject nextObj = gridManager.GetObjectAt(nextGrid);
-        if (nextObj == null) return;
+        if (nextObj == null)
+        {
+            Debug.Log("  下一格无建筑");
+            return;
+        }
         ConveyorBelt nextBelt = nextObj.GetComponent<ConveyorBelt>();
-        if (nextBelt == null) return;
-        // 必须属于同一线路且线路工作
-        if (nextBelt.line != belt.line) return;
-        if (!nextBelt.line.isOperational) return;
+        if (nextBelt == null)
+        {
+            Debug.Log("  下一格不是传送带");
+            return;
+        }
+        if (nextBelt.line != belt.line)
+        {
+            Debug.Log($"  线路不一致：当前线路 {belt.line.id}，下一格线路 {(nextBelt.line == null ? "null" : nextBelt.line.id.ToString())}");
+            return;
+        }
+        if (!nextBelt.line.isOperational)
+        {
+            Debug.Log("  下一格线路不工作");
+            return;
+        }
+        if (nextBelt.HasItem())
+        {
+            Debug.Log("  下一格已有物品");
+            return;
+        }
 
-        // 检查目标格子是否有物品
-        if (nextBelt.HasItem()) return;
-
-        // 开始移动
+        Debug.Log("  开始移动！");
         targetGridPos = nextGrid;
         moveProgress = 0f;
-
-        // 更新传送带引用
         belt.SetItem(null);
         nextBelt.SetItem(this.gameObject);
-    }
+}
 
     private void OnArriveAtTarget()
     {
         // 到达后，下一次 FixedUpdate 会自动尝试继续移动
-        // 可以在这里添加额外效果，如触发到达事件
+        // 可以在此添加额外效果，如触发到达事件
     }
 
     // 由外部调用（如 ItemPlacer）设置物品的初始网格
